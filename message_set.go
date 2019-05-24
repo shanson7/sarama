@@ -16,11 +16,18 @@ func (msb *MessageBlock) Messages() []*MessageBlock {
 
 func (msb *MessageBlock) encode(pe packetEncoder) error {
 	pe.putInt64(msb.Offset)
-	pe.push(&lengthField{})
+
+	lengthEncoder := acquireLengthField()
+	pe.push(lengthEncoder)
 	err := msb.Msg.encode(pe)
 	if err != nil {
 		return err
 	}
+
+	err = pe.pop()
+
+	releaseLengthField(lengthEncoder)
+
 	return pe.pop()
 }
 
@@ -29,7 +36,8 @@ func (msb *MessageBlock) decode(pd packetDecoder) (err error) {
 		return err
 	}
 
-	if err = pd.push(&lengthField{}); err != nil {
+	lengthDecoder := acquireLengthField()
+	if err = pd.push(lengthDecoder); err != nil {
 		return err
 	}
 
@@ -41,6 +49,8 @@ func (msb *MessageBlock) decode(pd packetDecoder) (err error) {
 	if err = pd.pop(); err != nil {
 		return err
 	}
+
+	releaseLengthField(lengthDecoder)
 
 	return nil
 }
